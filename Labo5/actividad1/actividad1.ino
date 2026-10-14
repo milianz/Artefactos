@@ -1,6 +1,6 @@
-#include <WiFi.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
+#include <WiFi.h>
 
 // ---------------------- CONFIGURACIÓN WI-FI ----------------------
 #define WLAN_SSID "ARTEFACTOS"
@@ -10,7 +10,7 @@
 #define AIO_SERVER "io.adafruit.com"
 #define AIO_SERVERPORT 1883
 #define AIO_USERNAME "milianzz"
-#define AIO_KEY "TU_ADAFRUIT_IO_KEY"
+#define AIO_KEY ""
 
 // ---------------------- PINES ----------------------
 #define TRIG_PIN 18
@@ -29,13 +29,16 @@
 
 // ---------------------- CLIENTE MQTT Y FEEDS ----------------------
 WiFiClient client;
-Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME,
+                          AIO_KEY);
 
 // Publicar (Publish)
-Adafruit_MQTT_Publish feedDistancia = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/distancia");
+Adafruit_MQTT_Publish feedDistancia =
+    Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/distancia");
 
 // Suscribir (Subscribe)
-Adafruit_MQTT_Subscribe feedLed = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/led");
+Adafruit_MQTT_Subscribe feedLed =
+    Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/led");
 
 // ---------------------- ESTADO ----------------------
 float ultimaDistancia = -1;
@@ -53,147 +56,159 @@ void actualizarLED();
 
 // =====================================================================
 void setup() {
-Serial.begin(115200);
-delay(10);
+  Serial.begin(115200);
+  delay(10);
 
-pinMode(TRIG_PIN, OUTPUT);
-pinMode(ECHO_PIN, INPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
 
-ledcAttach(PIN_R, PWM_FREQ, PWM_RES);
-ledcAttach(PIN_G, PWM_FREQ, PWM_RES);
-ledcAttach(PIN_B, PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_R, PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_G, PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_B, PWM_FREQ, PWM_RES);
 
-escribirRGB(255, 255, 255);
+  escribirRGB(255, 255, 255);
 
-conectarWiFi();
-mqtt.subscribe(&feedLed);
+  conectarWiFi();
+  mqtt.subscribe(&feedLed);
 }
 
 // =====================================================================
 void loop() {
-conectarMQTT();
-Adafruit_MQTT_Subscribe *sub;
+  conectarMQTT();
+  Adafruit_MQTT_Subscribe *sub;
 
-while ((sub = mqtt.readSubscription(200))) {
-if (sub == &feedLed) {
-const char *msg = (char *)feedLed.lastread;
-ledEncendido = (strcmp(msg, "ON") == 0);
-Serial.print("boton-led: ");
-Serial.println(msg);
-actualizarLED();
-}
-}
+  while ((sub = mqtt.readSubscription(200))) {
+    if (sub == &feedLed) {
+      const char *msg = (char *)feedLed.lastread;
+      ledEncendido = (strcmp(msg, "ON") == 0);
+      Serial.print("boton-led: ");
+      Serial.println(msg);
+      actualizarLED();
+    }
+  }
 
-if (millis() - ultimoPublicar >= INTERVALO_PUBLICAR_MS) {
-ultimoPublicar = millis();
+  if (millis() - ultimoPublicar >= INTERVALO_PUBLICAR_MS) {
+    ultimoPublicar = millis();
 
-float d = distanciaPromedio(5);
-if (d > 0) {
-ultimaDistancia = d;
-Serial.print("Distancia: "); Serial.print(d, 1); Serial.println(" cm");
+    float d = distanciaPromedio(5);
+    if (d > 0) {
+      ultimaDistancia = d;
+      Serial.print("Distancia: ");
+      Serial.print(d, 1);
+      Serial.println(" cm");
 
-if (!feedDistancia.publish(d)) {
-Serial.println("Error al publicar la distancia");
-}
-} else {
-Serial.println("Lectura fuera de rango o sin eco");
-}
+      if (!feedDistancia.publish(d)) {
+        Serial.println("Error al publicar la distancia");
+      }
+    } else {
+      Serial.println("Lectura fuera de rango o sin eco");
+    }
 
-actualizarLED();
-}
+    actualizarLED();
+  }
 
-if (millis() - ultimoPing >= 30000) {
-ultimoPing = millis();
-mqtt.ping();
-}
+  if (millis() - ultimoPing >= 30000) {
+    ultimoPing = millis();
+    mqtt.ping();
+  }
 }
 
 // =====================================================================
 // ULTRASÓNICO HC-SR04
 // =====================================================================
 float leerDistanciaCm() {
-digitalWrite(TRIG_PIN, LOW);
-delayMicroseconds(2);
-digitalWrite(TRIG_PIN, HIGH);
-delayMicroseconds(10);
-digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
 
-long duracion = pulseIn(ECHO_PIN, HIGH, 30000);
-if (duracion == 0) return -1;
+  long duracion = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (duracion == 0)
+    return -1;
 
-float distancia = (duracion * 0.0343) / 2;
+  float distancia = (duracion * 0.0343) / 2;
 
-if (distancia < 2 || distancia > 100) return -1;
-return distancia;
+  if (distancia < 2 || distancia > 100)
+    return -1;
+  return distancia;
 }
 
 float distanciaPromedio(int muestras) {
-float suma = 0;
-int validas = 0;
-for (int i = 0; i < muestras; i++) {
-float d = leerDistanciaCm();
-if (d > 0) { suma += d; validas++; }
-delay(40);
-}
-return (validas > 0) ? suma / validas : -1;
+  float suma = 0;
+  int validas = 0;
+  for (int i = 0; i < muestras; i++) {
+    float d = leerDistanciaCm();
+    if (d > 0) {
+      suma += d;
+      validas++;
+    }
+    delay(40);
+  }
+  return (validas > 0) ? suma / validas : -1;
 }
 
 // =====================================================================
 // LED RGB
 // =====================================================================
 void escribirRGB(uint8_t r, uint8_t g, uint8_t b) {
-if (RGB_ANODO_COMUN) {
-r = 255 - r; g = 255 - g; b = 255 - b;
-}
-ledcWrite(PIN_R, r);
-ledcWrite(PIN_G, g);
-ledcWrite(PIN_B, b);
+  if (RGB_ANODO_COMUN) {
+    r = 255 - r;
+    g = 255 - g;
+    b = 255 - b;
+  }
+  ledcWrite(PIN_R, r);
+  ledcWrite(PIN_G, g);
+  ledcWrite(PIN_B, b);
 }
 
 void actualizarLED() {
-if (!ledEncendido) {
-escribirRGB(0, 0, 0);
-return;
-}
+  if (!ledEncendido) {
+    escribirRGB(0, 0, 0);
+    return;
+  }
 
-if (ultimaDistancia <= DIST_CERCA_CM) {
-escribirRGB(255, 0, 0);
-} else if (ultimaDistancia <= DIST_MEDIA_CM) {
-escribirRGB(0, 0, 255);
-} else {
-escribirRGB(0, 255, 0);
-}
+  if (ultimaDistancia <= DIST_CERCA_CM) {
+    escribirRGB(255, 0, 0);
+  } else if (ultimaDistancia <= DIST_MEDIA_CM) {
+    escribirRGB(0, 0, 255);
+  } else {
+    escribirRGB(0, 255, 0);
+  }
 }
 
 // =====================================================================
 // CONEXIONES
 // =====================================================================
 void conectarWiFi() {
-Serial.print("Conectando a "); Serial.println(WLAN_SSID);
-WiFi.begin(WLAN_SSID, WLAN_PASS);
-while (WiFi.status() != WL_CONNECTED) {
-delay(500);
-Serial.print(".");
-}
-Serial.println();
-Serial.print("WiFi conectado. IP: "); Serial.println(WiFi.localIP());
+  Serial.print("Conectando a ");
+  Serial.println(WLAN_SSID);
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("WiFi conectado. IP: ");
+  Serial.println(WiFi.localIP());
 }
 
 void conectarMQTT() {
-if (mqtt.connected()) return;
+  if (mqtt.connected())
+    return;
 
-Serial.print("Conectando a Adafruit IO... ");
-int8_t ret;
-uint8_t intentos = 3;
-while ((ret = mqtt.connect()) != 0) {
-Serial.println(mqtt.connectErrorString(ret));
-Serial.println("Reintentando en 5 segundos...");
-mqtt.disconnect();
-delay(5000);
-if (--intentos == 0) {
-Serial.println("No se pudo conectar. Reiniciando la ESP32...");
-ESP.restart();
-}
-}
-Serial.println("¡Conectado a Adafruit IO!");
+  Serial.print("Conectando a Adafruit IO... ");
+  int8_t ret;
+  uint8_t intentos = 3;
+  while ((ret = mqtt.connect()) != 0) {
+    Serial.println(mqtt.connectErrorString(ret));
+    Serial.println("Reintentando en 5 segundos...");
+    mqtt.disconnect();
+    delay(5000);
+    if (--intentos == 0) {
+      Serial.println("No se pudo conectar. Reiniciando la ESP32...");
+      ESP.restart();
+    }
+  }
+  Serial.println("¡Conectado a Adafruit IO!");
 }
